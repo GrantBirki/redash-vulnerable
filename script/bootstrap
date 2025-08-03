@@ -7,28 +7,66 @@ source script/env "$@"
 REDASH_BASE_PATH=$DIR
 REDASH_ENV_FILE="$REDASH_BASE_PATH/.env"
 
+# Logging functions
+log_info() {
+  echo -e "${BLUE}[INFO]${OFF} $1"
+}
+
+log_success() {
+  echo -e "${GREEN}[SUCCESS]${OFF} $1"
+}
+
+log_warning() {
+  echo -e "${PURPLE}[WARNING]${OFF} $1"
+}
+
+log_error() {
+  echo -e "${RED}[ERROR]${OFF} $1"
+}
+
 create_directories() {
+  log_info "Checking and creating necessary directories..."
+  
   if [[ ! -e $REDASH_BASE_PATH ]]; then
+    log_info "Creating base directory: $REDASH_BASE_PATH"
     mkdir -p $REDASH_BASE_PATH
+    log_success "Created base directory"
+  else
+    log_info "Base directory already exists: $REDASH_BASE_PATH"
   fi
 
   if [[ ! -e $REDASH_BASE_PATH/postgres-data ]]; then
+    log_info "Creating postgres-data directory: $REDASH_BASE_PATH/postgres-data"
     mkdir $REDASH_BASE_PATH/postgres-data
+    log_success "Created postgres-data directory"
+  else
+    log_info "Postgres-data directory already exists: $REDASH_BASE_PATH/postgres-data"
   fi
 }
 
 create_config() {
+  log_info "Configuring environment variables..."
+  
   if [[ -e $REDASH_ENV_FILE ]]; then
+    log_warning "Environment file already exists at $REDASH_ENV_FILE"
+    log_info "Backing up existing environment file..."
+    cp $REDASH_ENV_FILE "${REDASH_ENV_FILE}.backup.$(date +%s)"
+    log_success "Backup created"
+    log_info "Removing existing environment file..."
     rm $REDASH_ENV_FILE
-    touch $REDASH_ENV_FILE
   fi
 
+  log_info "Creating new environment file..."
+  touch $REDASH_ENV_FILE
+
+  log_info "Generating secure random secrets..."
   # Generate random secrets using openssl (available on both macOS and Unix)
   COOKIE_SECRET=$(openssl rand -hex 16)
   SECRET_KEY=$(openssl rand -hex 16)
   POSTGRES_PASSWORD=$(openssl rand -hex 16)
   REDASH_DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD}@postgres/postgres"
 
+  log_info "Writing environment variables to $REDASH_ENV_FILE..."
   echo "PYTHONUNBUFFERED=0" >> $REDASH_ENV_FILE
   echo "REDASH_LOG_LEVEL=INFO" >> $REDASH_ENV_FILE
   echo "REDASH_REDIS_URL=redis://redis:6379/0" >> $REDASH_ENV_FILE
@@ -36,7 +74,16 @@ create_config() {
   echo "REDASH_COOKIE_SECRET=$COOKIE_SECRET" >> $REDASH_ENV_FILE
   echo "REDASH_SECRET_KEY=$SECRET_KEY" >> $REDASH_ENV_FILE
   echo "REDASH_DATABASE_URL=$REDASH_DATABASE_URL" >> $REDASH_ENV_FILE
+  
+  log_success "Environment configuration completed"
 }
+
+log_info "Starting Redash bootstrap process..."
+log_info "Platform: $PLATFORM $VERSION ($ARCH)"
+log_info "Working directory: $DIR"
 
 create_directories
 create_config
+
+log_success "Bootstrap process completed successfully!"
+log_info "You can now run 'docker compose up' to start Redash"

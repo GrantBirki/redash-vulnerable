@@ -4,8 +4,68 @@ set -e
 
 source script/env "$@"
 
+# Logging functions (same as bootstrap)
+log_info() {
+  echo -e "${BLUE}[INFO]${OFF} $1"
+}
+
+log_success() {
+  echo -e "${GREEN}[SUCCESS]${OFF} $1"
+}
+
+log_warning() {
+  echo -e "${PURPLE}[WARNING]${OFF} $1"
+}
+
+log_error() {
+  echo -e "${RED}[ERROR]${OFF} $1"
+}
+
+# Check prerequisites and run bootstrap if needed
+check_prerequisites() {
+  local need_bootstrap=false
+  
+  log_info "Checking prerequisites for Redash server..."
+  
+  if [[ ! -d "$DIR/postgres-data" ]]; then
+    log_warning "postgres-data directory not found at $DIR/postgres-data"
+    need_bootstrap=true
+  else
+    log_info "postgres-data directory exists"
+  fi
+  
+  if [[ ! -f "$DIR/.env" ]]; then
+    log_warning ".env file not found at $DIR/.env"
+    need_bootstrap=true
+  else
+    log_info ".env file exists"
+  fi
+  
+  if [[ "$need_bootstrap" == "true" ]]; then
+    log_info "Running bootstrap to set up missing prerequisites..."
+    bash "$DIR/script/bootstrap"
+    log_success "Bootstrap completed"
+  else
+    log_info "All prerequisites are in place"
+  fi
+}
+
+# Check and set up prerequisites
+check_prerequisites
+
+log_info "Starting Redash server setup..."
+
 echo "[-] Killing old docker processes"
 docker compose -f docker-compose.yml down --remove-orphans -v -t 1
+
+echo "[i] Nuking previous postgres data"
+if [[ -d "$DIR/postgres-data" ]]; then
+  rm -rf "$DIR/postgres-data"
+fi
+
+# Since we just nuked postgres-data, we need to recreate it
+log_info "Recreating postgres-data directory after cleanup..."
+mkdir -p "$DIR/postgres-data"
 
 echo "[i] Building docker containers"
 docker compose run --rm server create_db
