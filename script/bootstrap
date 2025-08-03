@@ -1,0 +1,42 @@
+#! /usr/bin/env bash
+
+set -e # prevent any kind of script failures
+
+source script/env "$@"
+
+REDASH_BASE_PATH=$DIR
+REDASH_ENV_FILE="$REDASH_BASE_PATH/.env"
+
+create_directories() {
+  if [[ ! -e $REDASH_BASE_PATH ]]; then
+    mkdir -p $REDASH_BASE_PATH
+  fi
+
+  if [[ ! -e $REDASH_BASE_PATH/postgres-data ]]; then
+    mkdir $REDASH_BASE_PATH/postgres-data
+  fi
+}
+
+create_config() {
+  if [[ -e $REDASH_ENV_FILE ]]; then
+    rm $REDASH_ENV_FILE
+    touch $REDASH_ENV_FILE
+  fi
+
+  # Generate random secrets using openssl (available on both macOS and Unix)
+  COOKIE_SECRET=$(openssl rand -hex 16)
+  SECRET_KEY=$(openssl rand -hex 16)
+  POSTGRES_PASSWORD=$(openssl rand -hex 16)
+  REDASH_DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD}@postgres/postgres"
+
+  echo "PYTHONUNBUFFERED=0" >> $REDASH_ENV_FILE
+  echo "REDASH_LOG_LEVEL=INFO" >> $REDASH_ENV_FILE
+  echo "REDASH_REDIS_URL=redis://redis:6379/0" >> $REDASH_ENV_FILE
+  echo "POSTGRES_PASSWORD=$POSTGRES_PASSWORD" >> $REDASH_ENV_FILE
+  echo "REDASH_COOKIE_SECRET=$COOKIE_SECRET" >> $REDASH_ENV_FILE
+  echo "REDASH_SECRET_KEY=$SECRET_KEY" >> $REDASH_ENV_FILE
+  echo "REDASH_DATABASE_URL=$REDASH_DATABASE_URL" >> $REDASH_ENV_FILE
+}
+
+create_directories
+create_config
