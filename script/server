@@ -2,6 +2,43 @@
 
 set -e
 
+# Parse command line arguments
+DESTROY_DATA=false
+SHOW_HELP=false
+
+show_help() {
+  echo "Usage: script/server [OPTIONS]"
+  echo ""
+  echo "Start the Redash server using Docker Compose."
+  echo ""
+  echo "Options:"
+  echo "  --destroy    Destroy all existing data and start fresh"
+  echo "  --help       Show this help message"
+  echo ""
+  echo "Default behavior: Preserve existing data and restart containers"
+}
+
+for arg in "$@"; do
+  case $arg in
+    --destroy)
+      DESTROY_DATA=true
+      shift
+      ;;
+    --help|-h)
+      SHOW_HELP=true
+      shift
+      ;;
+    *)
+      # Pass other arguments to the env script
+      ;;
+  esac
+done
+
+if [[ "$SHOW_HELP" == "true" ]]; then
+  show_help
+  exit 0
+fi
+
 source script/env "$@"
 
 # Logging functions (same as bootstrap)
@@ -50,25 +87,49 @@ check_prerequisites() {
   fi
 }
 
+# Function to check if database needs initialization
+check_database_initialization() {
+  if [[ "$DESTROY_DATA" == "false" ]] && [[ -d "$DIR/postgres-data" ]] && [[ ! -f "$DIR/postgres-data/PG_VERSION" ]]; then
+    log_info "Postgres data directory exists but appears uninitialized - creating database"
+    docker compose run --rm server create_db
+  elif [[ "$DESTROY_DATA" == "false" ]] && [[ ! -d "$DIR/postgres-data" ]]; then
+    log_info "No postgres data directory found - creating database"
+    mkdir -p "$DIR/postgres-data"
+    docker compose run --rm server create_db
+  fi
+}
+
 # Check and set up prerequisites
 check_prerequisites
 
+# Check if database needs initialization (only when not destroying)
+check_database_initialization
+
 log_info "Starting Redash server setup..."
 
-echo "[-] Killing old docker processes"
-docker compose -f docker-compose.yml down --remove-orphans -v -t 1
+if [[ "$DESTROY_DATA" == "true" ]]; then
+  log_warning "Destroy flag detected - removing all data and containers..."
+  echo "[-] Killing old docker processes and removing volumes"
+  docker compose -f docker-compose.yml down --remove-orphans -v -t 1
 
-echo "[i] Nuking previous postgres data"
-if [[ -d "$DIR/postgres-data" ]]; then
-  rm -rf "$DIR/postgres-data"
+  echo "[i] Nuking previous postgres data"
+  if [[ -d "$DIR/postgres-data" ]]; then
+    rm -rf "$DIR/postgres-data"
+  fi
+
+  # Since we just nuked postgres-data, we need to recreate it
+  log_info "Recreating postgres-data directory after cleanup..."
+  mkdir -p "$DIR/postgres-data"
+
+  echo "[i] Building docker containers and creating database"
+  docker compose run --rm server create_db
+else
+  log_info "Preserving existing data - stopping containers gracefully"
+  echo "[-] Stopping existing docker containers (preserving data)"
+  docker compose -f docker-compose.yml down -t 1
 fi
 
-# Since we just nuked postgres-data, we need to recreate it
-log_info "Recreating postgres-data directory after cleanup..."
-mkdir -p "$DIR/postgres-data"
-
-echo "[i] Building docker containers"
-docker compose run --rm server create_db
+echo "[i] Starting docker containers"
 docker compose -f docker-compose.yml up --build -d
 
 echo -e "[+] Containers are now running!"

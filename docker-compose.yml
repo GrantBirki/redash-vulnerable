@@ -5,47 +5,72 @@ x-redash-service: &redash-service
     - redis
   env_file: .env
   restart: always
+  extra_hosts:
+    - "localhost:host-gateway"  # This makes localhost resolve to host IP
 services:
-  server:
+  redash:
     <<: *redash-service
     command: server
     ports:
       - "5001:5000"
     environment:
       REDASH_WEB_WORKERS: 4
+    networks:
+      - redash
+      - authentik
   scheduler:
     <<: *redash-service
     command: scheduler
     environment:
       QUEUES: "celery"
       WORKERS_COUNT: 1
+    networks:
+      - redash
   scheduled_worker:
     <<: *redash-service
     command: worker
     environment:
       QUEUES: "scheduled_queries,schemas"
       WORKERS_COUNT: 1
+    networks:
+      - redash
   adhoc_worker:
     <<: *redash-service
     command: worker
     environment:
       QUEUES: "queries"
       WORKERS_COUNT: 2
+    networks:
+      - redash
   redis:
     image: redis:5.0-alpine
     restart: always
+    networks:
+      - redash
   postgres:
     image: postgres:9.6-alpine
     env_file: .env
     volumes:
       - ./postgres-data:/var/lib/postgresql/data
     restart: always
+    networks:
+      - redash
   nginx:
     image: redash/nginx:latest
     ports:
       - "8080:80"
     depends_on:
-      - server
+      - redash
     links:
-      - server:redash
+      - redash:redash
     restart: always
+    networks:
+      - redash
+
+# using https://github.com/GrantBirki/authentik-docker for SSO
+networks:
+  authentik:
+    name: authentik
+    external: true
+  redash:
+    name: redash

@@ -4,10 +4,20 @@ A Dockerized Redash instance that is vulnerable to [`CVE-2021-21239`](https://nv
 
 ## Usage 💻
 
+### Starting the server (preserving data)
+
 ```bash
 script/server
 ```
 
-This will run and start the redash server using Docker Compose in a detached mode. The server will be available at [`http://localhost:8080`](http://localhost:8080/setup).
+This will start the Redash server using Docker Compose in detached mode, preserving any existing data. The server will be available at [`http://localhost:8080`](http://localhost:8080/setup).
 
-Running the `script/server` command again will destroy the existing instance and fully rebuild/start a new server from scratch.
+### Starting fresh (destroying all data)
+
+```bash
+script/server --destroy
+```
+
+This will destroy all existing containers, volumes, and data directories, then rebuild everything from scratch. Use this when you want to start completely fresh.
+
+**Note:** The `--destroy` flag will permanently delete all your Redash data, including dashboards, queries, users, and database content.

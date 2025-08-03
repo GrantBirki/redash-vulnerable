@@ -74,6 +74,7 @@ create_config() {
   echo "REDASH_COOKIE_SECRET=$COOKIE_SECRET" >> $REDASH_ENV_FILE
   echo "REDASH_SECRET_KEY=$SECRET_KEY" >> $REDASH_ENV_FILE
   echo "REDASH_DATABASE_URL=$REDASH_DATABASE_URL" >> $REDASH_ENV_FILE
+  echo "REDASH_THROTTLE_LOGIN_PATTERN=50000/minute" >> $REDASH_ENV_FILE
   
   log_success "Environment configuration completed"
 }
