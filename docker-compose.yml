@@ -1,5 +1,5 @@
 x-redash-service: &redash-service
-  image: redash/redash:10.1.0.b50633 # https://github.com/getredash/redash/releases/tag/v10.1.0
+  image: redash/redash:10.0.0.b50363 # https://github.com/getredash/redash/releases/tag/v10.0.0
   depends_on:
     - postgres
     - redis
